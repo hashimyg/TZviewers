@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <title>Master Control Terminal - TZviewers Security </title>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        if (!sessionStorage.getItem("admin_token")) {
+            window.location.replace("login.html");
+        }
+    </script>
+    <style>
+        /* MOBILE STACK ORDER OVERRIDE — desktop/tablet layout untouched above 768px */
+        @media (max-width: 768px) {
+            .app-dashboard-grid {
+                display: flex !important;
+                flex-direction: column;
+            }
+            #colLeft, #colRight {
+                display: contents;
+            }
+            #secAnalytics { order: 1; }
+            #secBulkUpload { order: 2; }
+            #secPending { order: 3; }
+            #secMasterDirectory { order: 4; }
+            #secRecycleBin { order: 5; }
+        }
+    </style>
+</head>
+
+
+<body class="cyber-bg">
+
+    <!-- SECURE ADMIN NAVIGATION BAR -->
+    <nav class="premium-nav" style="background-color: #151f32; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <div class="nav-wrapper">
+            <a href="admin.html" class="brand-logo">🔒 Control<span>Terminal</span></a>
+            <button id="btnLogoutTrigger" class="viral-btn" style="background-color: #ef4444; max-width: 120px; padding: 8px 16px; font-size: 0.85rem;">
+                Logout 
+            </button>
+        </div>
+    </nav>
+
+    <!-- ADMIN GRID MAIN SYSTEM WRAPPER -->
+    <main class="app-dashboard-grid" style="grid-template-columns: 1fr 1.2fr; margin-top: 30px;">
+        
+        <!-- LEFT COLUMN: LEDGER ANALYTICS, GENERATOR, & FILE INGESTION -->
+        <div id="colLeft" style="display: flex; flex-direction: column; gap: 24px;">
+            
+            <!-- SECTION 1: METRICS DISPLAY & GENERATOR CONTROLS -->
+            <section id="secAnalytics" class="grid-card">
+                <div class="card-content-wrapper">
+                    <h2 class="form-panel-title">Platform Analytics & VCF Engine</h2>
+                    <p class="subtitle-text">Monitor operational statistics and compile verified entries atomically.</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                        <div style="background-color: #0f172a; padding: 16px; border-radius: var(--radius-premium); border: 1px solid var(--border-cyber);">
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; font-weight: 600;">APPROVED CONTACTS</span>
+                            <span id="statApprovedCount" class="stat-number-glow" style="font-size: 1.8rem;">0</span>
+                        </div>
+                        <div style="background-color: #0f172a; padding: 16px; border-radius: var(--radius-premium); border: 1px solid var(--border-cyber);">
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; font-weight: 600;">PENDING VALIDATION</span>
+                            <span id="statPendingCount" class="stat-number-glow" style="color: #ff9800; font-size: 1.8rem; text-shadow: 0 0 12px rgba(255,152,0,0.2);">0</span>
+                        </div>
+                    </div>
+
+                    <!-- REFACTORED GENERATOR ENGINE LAYOUT -->
+                    <div style="background-color: rgba(11,15,25,0.6); padding: 16px; border-radius: 8px; border: 1px solid var(--border-cyber); margin-bottom: 16px;">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 6px; color: var(--text-primary);">Master VCF Builder</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">Compile all approved telephone ledger records into an optimized, single standard download matrix.</p>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btnGenerateVCF" class="btn-neon-execute" style="padding: 10px; font-size: 0.85rem; flex: 1; background: linear-gradient(135deg, #10b981, #0ea5e9); box-shadow: 0 4px 12px rgba(16,185,129,0.2);">
+                                ⚙️ Generate VCF File
+                            </button>
+                            <!-- HIDDEN UNTIL GENERATION RESOLVES SECURELY -->
+                            <a id="btnDownloadVCF" class="viral-btn link-wa hidden" style="text-align: center; font-size: 0.85rem; padding: 10px; flex: 1;">
+                                📥 Download VCF File
+                            </a>
+                        </div>
+                    </div>
+
+                    <button id="btnTriggerSystemOptimize" class="btn-neon-execute" style="background: #334155; box-shadow: none; font-size: 0.85rem; padding: 10px;">
+                        ✨ Scan Indices & Merge Duplicate Rows
+                    </button>
+                </div>
+            </section>
+
+            <!-- SECTION 2: HARDENED FILE INGESTION (EXTENSION BLOCKED) -->
+            <section id="secBulkUpload" class="grid-card-branded">
+                <div class="card-content-wrapper" style="background-color: var(--cyber-card);">
+                    <h2 class="form-panel-title">Bulk Ledger Sheet Upload</h2>
+                    <p class="subtitle-text">Stream corporate listings into background tasks. Only clean extensions are authorized.</p>
+                    
+                    <form id="bulkUploadForm" enctype="multipart/form-data" novalidate>
+                        <div class="minimal-input-group" style="border: 2px dashed var(--border-cyber); padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 16px; background-color: #0f172a;">
+                            <input type="file" id="bulkFileSelector" accept=".csv, .xlsx, .xls, .txt" required style="color: var(--text-secondary); font-size: 0.85rem; width: 100%;">
+                            <small class="help-text-minimal" style="margin-top: 8px;">Authorized Extensions: .csv, .xlsx, .txt only (Max limit: 15MB).</small>
+                        </div>
+                        <button type="submit" id="btnBulkUploadSubmit" class="btn-neon-execute" style="background: linear-gradient(135deg, var(--neon-purple), #4338ca);">
+                            Upload Bulk Sheet
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </div>
+
+        <!-- RIGHT COLUMN: QUEUES MANAGEMENT CORRIDORS -->
+        <div id="colRight" style="display: flex; flex-direction: column; gap: 24px;">
+            
+            <!-- SECTION 3: REVIEWS QUEUE STREAM -->
+            <section id="secPending" class="grid-card">
+                <div class="card-content-wrapper">
+                    <h2 class="form-panel-title">Pending Validation Queue</h2>
+                    <p class="subtitle-text">Incoming registration listings awaiting review.Approved rows directly enter public export loops.</p>
+                    <div id="pendingQueueWrapper" style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto;">
+                        <div class="center-text" style="color: var(--text-secondary); padding: 10px;">Loading verification streams...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =====================================================================
+     RECYCLE BIN & CONTACT RECOVERY MATRIX (TRASH PANEL)
+     ===================================================================== -->
+<div id="secRecycleBin" class="dashboard-card-premium" style="margin-top: 20px; border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.02); padding: 20px; border-radius: 12px;">
+    <h3 style="color: #ef4444; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        🗑️ Recycle Bin (Soft-Deleted Contacts)
+    </h3>
+    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 15px;">
+        Namba zote unazozifuta kwa makosa zinalindwa hapa chini. Unaweza kuzirudisha kwenye mfumo kwa kubonyeza kitufe cha Restore.
+    </p>
+    <div id="trashDirectoryWrapper" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+        <!-- Rows zilizofutwa zitamwagika hapa kiotomatiki kupitia JS -->
+    </div>
+</div>
+
+
+            <!-- SECTION 4: MASTER LIST MANAGEMENT CORRIDOR (NEW FEATURE IMPLEMENTATION) -->
+            <section id="secMasterDirectory" class="grid-card">
+                <div class="card-content-wrapper">
+                    <h2 class="form-panel-title">Master Approved Directory</h2>
+                    <p class="subtitle-text">Full database index audit control panel. Review and instantly delete records from the dataset.</p>
+                    <div id="masterDirectoryWrapper" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+                        <div class="center-text" style="color: var(--text-secondary); padding: 10px;">Loading live operational ledgers...</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FOOTER META COMPLIANCE BLOCKS -->
+    <footer class="system-footer-premium" style="margin-top: 40px; padding: 20px 24px;">
+        <div class="footer-wrapper-grid" style="grid-template-columns: 1fr 1fr; align-items: center;">
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">&copy; 2026 TZviewers Admin Console.</p>
+            <p class="build-version-audit" style="justify-self: end;">Terminal Security Environment</p>
+        </div>
+    </footer>
+
+    <div id="toastNotification" class="toast hidden"></div>
+    <script src="js/admin.js"></script>
+</body>
+</html>
