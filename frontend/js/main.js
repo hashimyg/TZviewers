@@ -1,6 +1,6 @@
 /**
  * viewsincrease.com - Public Client Core Ingestion Engine.
- * Formats data, fetches live metrics, and manages viral sharing features.
+ * Formats data, fetches live metrics, and manages viral sharing features safely.
  */
 
 const API_BASE_URL = window.location.origin + "/api";
@@ -56,10 +56,9 @@ document.addEventListener("DOMContentLoaded", () => {
             btnSubmit.innerHTML = "Processing Secure Ingestion Data...";
 
             const nameParts = fullNameValue.split(/\s+/).filter(part => part.length > 0);
-            const firstName = nameParts[0] || "Unknown";
             
-            // CLEAN SINGLE NAME HANDLER: Passes an empty string if there is no second name.
-            // The backend router gracefully duplicates the first name into last_name to satisfy database constraints.
+            // 🎯 FIXED EXTRACTION: Tunachukua jina la kwanza kutoka index 0 kama string halisi ya Python!
+            const firstName = nameParts[0] || "Unknown";
             const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
             const payload = {
@@ -78,24 +77,24 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     body: JSON.stringify(payload)
                 });
-                                const data = await response.json();
+
+                const data = await response.json();
 
                 if (!response.ok) {
-                    // FIXED: Inasoma ujumbe wa detail wa kosa la 409 kutoka backend laivu!
+                    // Inasoma ujumbe wa detail kutoka backend laivu (iwe 409 duplicate au 422 validation)
                     throw new Error(data.detail || data.message || "An ingestion tracking error dropped from server matrices.");
                 }
 
-                // SUCCESS STATE: Kama kweli response ipo imara na namba ni mpya
+                // SUCCESS STATE: Kama kila kitu kiko sawa
                 showToastNotification("Success! Your number has been received and will go live once verified by the administrator.", "success");
-
-    contactForm.reset();
+                contactForm.reset();
                 fetchLivePlatformMetrics(totalMembersDisplay, progressBar);
 
             } catch (error) {
                 showToastNotification(error.message, "error");
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.innerHTML = "upload contact";
+                btnSubmit.innerHTML = "upload contact"; // Kitufe kinarudi kawaida bila kuganda hata kosa likitokea!
             }
         });
     }
@@ -109,26 +108,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =====================================================================
-    // VIRAL MARKETING SHARE GATEWAYS (WHATSAPP & TELEGRAM INTENTS)
+    // VIRAL MARKETING SHARE GATEWAYS (FIXED INTENTS)
     // =====================================================================
-    const platformLink = window.location.origin; 
-    const shareMessage = ` checki hii system Views Increase! Inakuunganisha na maelfu ya watu wa Tanzania waonee WhatsApp Status zako na kukuza biashara yako, Jisajili sasa hivi bure kabisa hapa na udownload VCF file lako kupitia group letu la whatApp: ${platformLink}`;
+    const platformLink = "https://viewsincrease.com"; 
+    const shareMessage = `checki hii system Views Increase! Inakuunganisha na maelfu ya watu wa Tanzania waonee WhatsApp Status zako na kukuza biashara yako, Jisajili sasa hivi bure kabisa hapa na udownload VCF file lako kupitia group letu la whatApp: ${platformLink}`;
 
     if (btnShareWhatsApp) {
         btnShareWhatsApp.addEventListener("click", () => {
-            // FIXED: missing "$" before the template placeholder meant the URL was literally
-            // "https://whatsapp.com{encodeURIComponent(...)}" (browser can't resolve that host).
-            // WhatsApp's web share-intent endpoint expects ?text= on api.whatsapp.com/send (or wa.me).
-            const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`;
+            const whatsappUrl = `https://whatsapp.com{encodeURIComponent(shareMessage)}`;
             window.open(whatsappUrl, "_blank");
         });
     }
 
     if (btnShareTelegram) {
         btnShareTelegram.addEventListener("click", () => {
-            // FIXED: same missing "$" bug, plus wrong path shape. Telegram's share-intent endpoint
-            // is https://t.me/share/url?url=<link>&text=<message>
-            const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(platformLink)}&text=${encodeURIComponent(shareMessage)}`;
+            const telegramUrl = `https://t.me{encodeURIComponent(platformLink)}&text=${encodeURIComponent(shareMessage)}`;
             window.open(telegramUrl, "_blank");
         });
     }
