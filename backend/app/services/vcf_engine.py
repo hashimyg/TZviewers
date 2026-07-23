@@ -1,75 +1,60 @@
-import asyncio
-import logging
 import os
+import logging
 from pathlib import Path
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from dotenv import load_dotenv
+from datetime import datetime, timezone
+from typing import List
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.models.contact import Contact
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(dotenv_path=BASE_DIR / ".env")
+logger = logging.getLogger("app.services.vcf_engine")
 
-from app.core.config import settings
-from app.utils.hashing import PasswordManager
-from app.database.models.admin import Admin
+# Njia ya asili ambapo faili la Master VCF linahifadhiwa kwenye diski
+STORAGE_DIR = Path(__file__).resolve().parent.parent.parent / "storage" / "vcf"
+MASTER_VCF_PATH = STORAGE_DIR / "master_directory.vcf"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("app.seed_admin")
-
-engine = create_async_engine(str(settings.DATABASE_URL))
-session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-
-
-async def execute_administrative_seeding() -> None:
+class VcfEngineService:
     """
-    Executes a hardened administrative database seeding operation.
-    Extracts access metrics cleanly from environment memory blocks.
+    Industrial Asynchronous VCF Card Export Matrix Loops.
+    Compiles database rows into standardized vCard 3.0 cellular formats.
     """
-    target_username = os.getenv("ADMIN_SEED_USERNAME")
-    # FIXED: Email yako ya ukweli sasa hivi imejifunga kiwanda bila kuvunja kodi
-    target_email = os.getenv("ADMIN_SEED_EMAIL", "hashimyg583@gmail.com")
-    raw_secure_password = os.getenv("ADMIN_SEED_PASSWORD")
 
-    if not target_username or not raw_secure_password:
-        logger.critical("Transaction aborted: Access credentials unpopulated inside host .env workspace profiles.")
-        return
+    @classmethod
+    # FIXED: Jina limebadilishwa kuwa compile_master_vcf ili kuondoa AttributeNotFound Error!
+    async def compile_master_vcf(cls, db: AsyncSession) -> int:
+        logger.info("Master vCard compilation sequence initiated by administrative request.")
+        
+        # 1. Hakikisha folda la kuhifadhia faili lipo kwenye diski
+        STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Connecting to PostgreSQL container inside isolated Docker layer...")
-
-    async with session_factory() as session:
         try:
-            query = select(Admin).where(Admin.username == target_username.lower().strip())
-            result = await session.execute(query)
-            existing_admin = result.scalars().first()
-
-            if existing_admin:
-                logger.warning(f"Administrative account for user '{target_username.lower()}' already exists. Skipping.")
-                return
-
-            hashed_password = PasswordManager.hash_password(raw_secure_password)
-
-            root_admin = Admin(
-                username=target_username.lower().strip(),
-                email=target_email.lower().strip(),
-                hashed_password=hashed_password,
-                is_active=True
-            )
-
-            session.add(root_admin)
-            await session.commit()
+            # 2. Vuta namba zote zilizoidhinishwa (is_approved=True) na ambazo hazijafutwa
+            stmt = select(Contact).where(
+                and_(Contact.is_approved == True, Contact.deleted_at == None)
+            ).order_by(Contact.first_name.asc())
             
-            logger.info(
-                f"SUCCESS: Root administrative profile deployed into PostgreSQL engine cleanly. "
-                f"Username Token: '{target_username.lower().strip()}' | Clearance Level: MASTER_ADMIN"
-            )
+            result = await db.execute(stmt)
+            approved_contacts: List[Contact] = list(result.scalars().all())
+
+            # 3. Anza kuandika faili la VCF upya (Master Accumulative Overwrite)
+            with open(MASTER_VCF_PATH, "w", encoding="utf-8") as vcf_file:
+                for contact in approved_contacts:
+                    vcf_file.write("BEGIN:VCARD\n")
+                    vcf_file.write("VERSION:3.0\n")
+                    
+                    # Unganisha jina la kwanza na la pili
+                    full_name = f"{contact.first_name} {contact.last_name}".strip()
+                    vcf_file.write(f"FN:{full_name}\n")
+                    vcf_file.write(f"N:{contact.last_name};{contact.first_name};;;\n")
+                    
+                    # FIXED: Alama ya dollar ($) imeondolewa ili namba isafishike kiwanda
+                    vcf_file.write(f"TEL;TYPE=CELL:{contact.phone_number}\n")
+                    vcf_file.write("END:VCARD\n")
+
+            total_compiled = len(approved_contacts)
+            logger.info(f"SUCCESS: Master vCard ledger closed cleanly. Injected {total_compiled} records into disk pipeline.")
+            return total_compiled
 
         except Exception as e:
-            await session.rollback()
-            logger.critical(f"Critical seeding error caught during transaction processing: {str(e)}")
-        finally:
-            await session.close()
-            await engine.dispose()
-
-
-if __name__ == "__main__":
-    asyncio.run(execute_administrative_seeding())
+            logger.error(f"Matrix compilation loop failed: {str(e)}", exc_info=True)
+            raise e

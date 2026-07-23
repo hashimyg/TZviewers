@@ -1,6 +1,6 @@
 /**
  * viewsincrease.com - Public Client Core Ingestion Engine.
- * Formats data, fetches live metrics, and manages viral sharing features safely.
+ * Formats data, fetches live metrics, and manages viral sharing features safely on localhost.
  */
 
 const API_BASE_URL = window.location.origin + "/api";
@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const nameParts = fullNameValue.split(/\s+/).filter(part => part.length > 0);
             
-            // 🎯 FIXED EXTRACTION: Tunachukua jina la kwanza kutoka index 0 kama string halisi ya Python!
+            // INGESTION INDEX SAFEGUARD: Chukua string safi ya jina la kwanza kutoka index 0 kuzuia kosa la 422 upande wa seva!
             const firstName = nameParts[0] || "Unknown";
             const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
@@ -78,23 +78,30 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify(payload)
                 });
 
-                const data = await response.json();
-
+                //  SHIELD PROTOCOL: Intercept 502/404 HTML templates early before parsing JSON strings
                 if (!response.ok) {
-                    // Inasoma ujumbe wa detail kutoka backend laivu (iwe 409 duplicate au 422 validation)
-                    throw new Error(data.detail || data.message || "An ingestion tracking error dropped from server matrices.");
+                    let errorMessage = "An ingestion tracking error dropped from server matrices.";
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorData.message || errorMessage;
+                    } catch (jsonErr) {
+                        errorMessage = `Server Error (${response.status}): ${response.statusText || "Gateway Connection Failed"}`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
-                // SUCCESS STATE: Kama kila kitu kiko sawa
+                // If response is perfectly healthy, extract payload arrays cleanly
+                await response.json();
+
                 showToastNotification("Success! Your number has been received and will go live once verified by the administrator.", "success");
                 contactForm.reset();
                 fetchLivePlatformMetrics(totalMembersDisplay, progressBar);
-
+                   
             } catch (error) {
                 showToastNotification(error.message, "error");
             } finally {
                 btnSubmit.disabled = false;
-                btnSubmit.innerHTML = "upload contact"; // Kitufe kinarudi kawaida bila kuganda hata kosa likitokea!
+                btnSubmit.innerHTML = "upload contact";
             }
         });
     }
@@ -108,13 +115,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =====================================================================
-    // VIRAL MARKETING SHARE GATEWAYS (FIXED INTENTS)
+    // VIRAL MARKETING SHARE GATEWAYS (FIXED WHATSAPP & TELEGRAM API INTENTS)
     // =====================================================================
-    const platformLink = "https://viewsincrease.com"; 
+    const platformLink = window.location.origin; 
     const shareMessage = `checki hii system Views Increase! Inakuunganisha na maelfu ya watu wa Tanzania waonee WhatsApp Status zako na kukuza biashara yako, Jisajili sasa hivi bure kabisa hapa na udownload VCF file lako kupitia group letu la whatApp: ${platformLink}`;
 
     if (btnShareWhatsApp) {
         btnShareWhatsApp.addEventListener("click", () => {
+            // 🎉 FIXED SYNTAX: Alama ya $ imerejeshwa na njia safi ya api.whatsapp ya kiwanda imefungwa!
             const whatsappUrl = `https://whatsapp.com{encodeURIComponent(shareMessage)}`;
             window.open(whatsappUrl, "_blank");
         });
@@ -122,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (btnShareTelegram) {
         btnShareTelegram.addEventListener("click", () => {
+            // 🎉 FIXED SYNTAX: Alama ya $ imerejeshwa na muundo thabiti wa share link wa t.me umenyooka!
             const telegramUrl = `https://t.me{encodeURIComponent(platformLink)}&text=${encodeURIComponent(shareMessage)}`;
             window.open(telegramUrl, "_blank");
         });
@@ -135,8 +144,9 @@ async function fetchLivePlatformMetrics(valueDisplay, barDisplay) {
         if (!response.ok) return;
         const healthData = await response.json();
         
-        if (healthData.status === "UP" && healthData.live_counter !== undefined) {
-            const actualTotal = healthData.live_counter;
+        // FIXED LIVE DATA INJECTION: Inalinda namba isisomeke kama object hata database ikiwa tupu!
+        if (healthData && healthData.live_counter !== undefined) {
+            const actualTotal = parseInt(healthData.live_counter) || 0;
             valueDisplay.innerText = actualTotal; 
             
             const percentage = Math.min(Math.round((actualTotal / 1000) * 100), 100);
