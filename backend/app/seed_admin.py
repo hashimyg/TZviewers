@@ -29,7 +29,7 @@ async def execute_administrative_seeding() -> None:
     Extracts access metrics cleanly from environment memory blocks.
     """
     target_username = os.getenv("ADMIN_SEED_USERNAME")
-    target_email = os.getenv("ADMIN_SEED_EMAIL", "admin@viewsincrease.com")
+    target_email = os.getenv("ADMIN_SEED_EMAIL", "hashimyg583@gmail.com")
     raw_secure_password = os.getenv("ADMIN_SEED_PASSWORD")
 
     if not target_username or not raw_secure_password:
