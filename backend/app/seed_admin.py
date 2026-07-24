@@ -12,6 +12,8 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 from app.core.config import settings
 from app.utils.hashing import PasswordManager
 from app.database.models.admin import Admin
+# Ongeza import ya Base ili tuweze kutengeneza tables
+from app.database.session import Base  # Hakikisha hii path ya Base ni sahihi kulingana na project yako
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("app.seed_admin")
@@ -29,10 +31,14 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
         logger.warning("Seeding skipped: Access credentials unpopulated inside .env workspace profiles.")
         return
 
-    # Kama function imeitwa bila session, inatengeneza ya kwake salama
     local_engine = None
     if db_session is None:
         local_engine = create_async_engine(str(settings.DATABASE_URL))
+        
+        # 1. TENGENEZA TABLES ZOTE KWANZA KAMBA HAZIPO (AUTO-MIGRATION)
+        async with local_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            
         local_factory = async_sessionmaker(bind=local_engine, class_=AsyncSession, expire_on_commit=False)
         session = local_factory()
     else:
@@ -71,5 +77,4 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
 
 
 if __name__ == "__main__":
-    # Inarun CLI standalone pekee bila kuingilia mfumo wa seva
     asyncio.run(execute_administrative_seeding())
