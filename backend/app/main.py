@@ -49,7 +49,32 @@ def create_application_runtime() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENVIRONMENT != "production" else None,
     )
 
-    # 3. MOUNT TRUSTED HOST MIDDLEWARE (FIXED: Allowed Render & Netlify Domains)
+    # 3. MOUNT CROSS-ORIGIN RESOURCE SHARING FIREWALL (MUST BE FIRST BEFORE OTHER MIDDLEWARES)
+    origins_list = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS] if hasattr(settings, "BACKEND_CORS_ORIGINS") else []
+    
+    # Explicitly add Netlify and Render production domains
+    production_origins = [
+        "https://tzviewers.netlify.app",
+        "https://tzviewers.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5500"
+    ]
+    
+    for p_origin in production_origins:
+        if p_origin not in origins_list:
+            origins_list.append(p_origin)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins_list,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["*"], # Allow all headers (Content-Type, Authorization, etc.)
+        expose_headers=["*"],
+    )
+
+    # 4. MOUNT TRUSTED HOST MIDDLEWARE
     if settings.ENVIRONMENT == "production":
         allowed_hosts_list = [
             "localhost",
@@ -57,18 +82,19 @@ def create_application_runtime() -> FastAPI:
             "tzviewers.onrender.com",
             "*.onrender.com",
             "tzviewers.netlify.app",
-            "*.netlify.app"
+            "*.netlify.app",
+            "*" # Safety fallback for Render proxying
         ]
         app.add_middleware(
             TrustedHostMiddleware, 
             allowed_hosts=allowed_hosts_list
         )
 
-    # 4. MOUNT SECURE REQUEST THROTTLING MIDDLEWARE (Layer 6 Anti-Abuse)
+    # 5. MOUNT SECURE REQUEST THROTTLING MIDDLEWARE (Layer 6 Anti-Abuse)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # 5. MOUNT DEFENSIVE SECURITY HEADERS MIDDLEWARE (Layer 5 Data Protection)
+    # 6. MOUNT DEFENSIVE SECURITY HEADERS MIDDLEWARE
     @app.middleware("http")
     async def inject_defensive_security_headers(request: Request, call_next) -> Response:
         """
@@ -81,32 +107,6 @@ def create_application_runtime() -> FastAPI:
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
         return response
-
-    # 6. MOUNT CROSS-ORIGIN RESOURCE SHARING FIREWALL (FIXED: Auto-fallback for Production)
-    origins_list = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    
-    # Ensure production domains are explicitly permitted even if missing in .env
-    production_origins = [
-        "https://tzviewers.netlify.app",
-        "https://tzviewers.onrender.com",
-        "http://localhost:3000",
-        "http://localhost:8000"
-    ]
-    for p_origin in production_origins:
-        if p_origin not in origins_list and "*" not in origins_list:
-            origins_list.append(p_origin)
-
-    allow_credentials_gate = True
-    if "*" in origins_list:
-        allow_credentials_gate = False
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins_list,
-        allow_credentials=allow_credentials_gate,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    )
 
     # 7. REGISTER GLOBAL EXCEPTIONS MANAGEMENT MATRIX (Layer 8 Protection)
     register_exception_handlers(app)
