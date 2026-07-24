@@ -38,14 +38,12 @@ async def submit_public_contact(
 
     if duplicate_record:
         logger.warning(f"Registration aborted: Phone number {payload.phone_number} is already taken.")
-        # FIXED: Inarusha kosa la kiwanda la 409 Conflict linalolazimisha response.ok kuwa False!
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This phone number is already registered inside our platform. Duplicate submissions are blocked."
         )
 
-
-    # FIXED DATA INTEGRITY FALLBACK: Satifies nullable=False constraints on single names gracefully
+    # FIXED DATA INTEGRITY FALLBACK: Satisfies nullable=False constraints on single names gracefully
     resolved_last_name = payload.last_name.strip() if payload.last_name else payload.first_name.strip()
 
     new_contact = Contact(
@@ -95,7 +93,6 @@ async def list_directory_records_for_admin(
         "data": [
             {
                 "id": str(r.id),
-                # If first name matches last name, we hide the placeholder value from views
                 "first_name": r.first_name,
                 "last_name": "" if r.last_name == r.first_name else r.last_name,
                 "phone_number": r.phone_number,
@@ -156,12 +153,23 @@ async def trigger_vcf_generation(
 @router.get("/vcf/download")
 async def download_master_vcf_file(token: str = Query(...), db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse
+    from app.services.vcf_engine import VcfEngineService
+    
     try:
         admin = await get_current_admin(token=token, db=db)
     except Exception:
          raise HTTPException(status_code=401, detail="Unauthorized access token sequence.")
          
     file_location = "/app/storage/vcf/master_directory.vcf"
+    
+    # 💡 AUTO-GENERATE FALLBACK: Kama faili halipo kwenye storage, compile hapo hapo!
+    if not os.path.exists(file_location):
+        try:
+            logger.info("VCF file missing from storage. Triggering auto-assembly on the fly...")
+            await VcfEngineService.compile_master_vcf(db=db)
+        except Exception as e:
+            logger.error(f"Auto-assembly failed during download request: {str(e)}")
+
     if not os.path.exists(file_location):
          raise HTTPException(status_code=404, detail="Assembled directory target log file is missing.")
          
@@ -172,7 +180,6 @@ async def list_deleted_contacts(
     current_admin: Admin = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    # Inatafuta namba zote ambazo deleted_at IS NOT NONE
     query = select(Contact).where(Contact.deleted_at != None).order_by(Contact.deleted_at.desc())
     res = await db.execute(query)
     records = res.scalars().all()
@@ -190,8 +197,7 @@ async def restore_deleted_contact(
     if not contact:
         return {"success": False, "message": "Record not found."}
     
-    # Safisha alama ya soft-delete kuirudisha hewani!
     contact.deleted_at = None
-    contact.is_approved = False # Inarudi kama pending ili uikague tena
+    contact.is_approved = False
     await db.commit()
     return {"success": True, "message": "Contact restored safely down into validation loops!"}
