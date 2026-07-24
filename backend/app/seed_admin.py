@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from dotenv import load_dotenv
 
@@ -35,7 +35,7 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
     if db_session is None:
         local_engine = create_async_engine(str(settings.DATABASE_URL))
         
-        # 1. TENGENEZA TABLES ZOTE KWANZA KAMBA HAZIPO (AUTO-MIGRATION)
+        # Auto-create tables if they don't exist
         async with local_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             
@@ -48,24 +48,31 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
         normalized_username = target_username.lower().strip()
         normalized_email = target_email.lower().strip()
 
-        query = select(Admin).where(Admin.username == normalized_username)
+        # 🎯 TAFUTA KWA USERNAME AU EMAIL ILI KUZUIA INTEGRITY ERROR
+        query = select(Admin).where(
+            or_(
+                Admin.username == normalized_username,
+                Admin.email == normalized_email
+            )
+        )
         result = await session.execute(query)
         existing_admin = result.scalars().first()
 
-        # Hash credentials using raw Bcrypt
+        # Compute fresh Bcrypt hash
         hashed_password = PasswordManager.hash_password(raw_secure_password)
 
         if existing_admin:
-            # UPDATE EXISTING PROFILE WITH NEW PASSWORD FROM ENV
-            existing_admin.hashed_password = hashed_password
+            # UPDATE EXISTING RECORD DIRECTLY
+            existing_admin.username = normalized_username
             existing_admin.email = normalized_email
+            existing_admin.hashed_password = hashed_password
             existing_admin.is_active = True
             
             await session.commit()
-            logger.info(f"SUCCESS: Administrative account '{normalized_username}' password & details updated cleanly.")
+            logger.info(f"SUCCESS: Administrative account '{normalized_username}' ({normalized_email}) updated cleanly.")
             return
 
-        # CREATE NEW PROFILE IF USER DOES NOT EXIST
+        # CREATE NEW RECORD ONLY IF NEITHER USERNAME NOR EMAIL EXISTS
         root_admin = Admin(
             username=normalized_username,
             email=normalized_email,
