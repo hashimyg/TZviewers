@@ -1,57 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <title>Terminal Access Gateway - VCFGlow Security</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+/**
+ * viewsincrease.com - High-Security Login Controller Interface.
+ * Handles primary ingestion authentication using secure JSON payloads directly to Render Backend.
+ */
 
-    <!-- NAV BLOCK MATCHES CENTRAL PLATFORM INTEGRATION -->
-    <nav class="premium-nav">
-        <div class="nav-wrapper">
-            <a href="index.html" class="brand-logo">TZ<span>viewers</span></a>
-        </div>
-    </nav>
+// 🎯 HII NDIO URL SAHIHI INAYOENDA RENDER (SIYO NETLIFY)
+const API_BASE_URL = "https://tzviewers.onrender.com/api";
 
-    <!-- SECURE COMPACT LOGIN CONTAINER LAYOUT -->
-    <main class="app-dashboard-grid" style="grid-template-columns: 1fr; max-width: 500px; margin: 60px auto;">
-        <section class="grid-card form-card-secure">
-            <div class="card-content-wrapper">
-                <h2 class="form-panel-title">Control Center Authentication</h2>
-                <p class="subtitle-text">Enter authorized root credentials to establish a secure management pipeline session. Unauthenticated profiling sessions are dropped instantly by system firewalls.</p>
+document.addEventListener("DOMContentLoaded", () => {
+    const loginForm = document.getElementById("loginForm");
+    const btnLoginSubmit = document.getElementById("btnLoginSubmit");
+    const userField = document.getElementById("adminUsername");
+    const passField = document.getElementById("adminPassword");
+
+    // 🛡️ HARDENED PRIVACY SECURITY PURGE: Wipes browser autofill cache instantly on load
+    if (userField && passField) {
+        userField.value = "";
+        passField.value = "";
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (event) => {
+            // 🛑 LALIZIMA FORM ISIFANYE GET SUBMIT AMA REFRESH PAGE
+            event.preventDefault();
+
+            const usernameInput = userField.value.trim();
+            // ⚠️ Password haiwekewi .trim() ili kuhifadhi raw entropy
+            const passwordInput = passField.value;
+
+            // Firewall A: Empty parameters verification block
+            if (!usernameInput || !passwordInput) {
+                showToastNotification("Authentication Failure: Username or Password fields cannot be left blank.", "error");
+                return;
+            }
+
+            // Freeze UI controls to prevent double-click performance spikes
+            btnLoginSubmit.disabled = true;
+            btnLoginSubmit.innerHTML = "Verifying Credentials Matrix...";
+
+            try {
+                // Forward secure JSON payload down the unified Render backend endpoint
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({ 
+                        username: usernameInput.toLowerCase(), 
+                        password: passwordInput 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    userField.value = "";
+                    passField.value = "";
+                    
+                    // Support Pydantic validation array error messages if available
+                    const errDetail = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || data.message);
+                    throw new Error(errDetail || "Credential verification failed. Access denied by authentication shield.");
+                }
+
+                // Capture access_token key returned natively by Token schema
+                const finalToken = data.access_token;
                 
-                <form id="loginForm" novalidate>
-                    <!-- ADMINISTRATIVE USERNAME INPUT -->
-                    <div class="minimal-input-group">
-                        <label for="adminUsername">Security Username</label>
-                        <input type="text" id="adminUsername" name="adminUsername" required minlength="3" maxlength="50" placeholder="Enter username token">
-                    </div>
+                if (!finalToken) {
+                    throw new Error("Security Error: Cryptographic access token missing in server response payload.");
+                }
 
-                    <!-- ADMINISTRATIVE PASSWORD INPUT -->
-                    <div class="minimal-input-group">
-                        <label for="adminPassword">Master Password Key</label>
-                        <input type="password" id="adminPassword" name="adminPassword" required minlength="12" maxlength="128" placeholder="••••••••••••">
-                    </div>
+                showToastNotification("Access Granted! Opening secure session...", "success");
+                
+                // Store verified token string securely inside short-lived session context memory
+                sessionStorage.setItem("admin_token", finalToken);
+                sessionStorage.setItem("admin_username", usernameInput.toLowerCase());
 
-                    <!-- AUTHENTICATION TRIGGER BUTTON -->
-                    <button type="submit" id="btnLoginSubmit" class="btn-neon-execute">
-                        🔓 Authenticate & Open Session
-                    </button>
-                </form>
+                // Zero out sensitive data fields from browser memory before redirection sequence
+                userField.value = "";
+                passField.value = "";
 
-                <div style="text-align: center; margin-top: 24px;">
-                    <a href="index.html" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">← Return to Public Facing Dashboard</a>
-                </div>
-            </div>
-        </section>
-    </main>
+                setTimeout(() => { 
+                    window.location.href = "admin.html"; 
+                }, 1000);
 
-    <!-- FLOATING EMERGENCY NOTIFICATION TOAST WINDOW CONTAINER -->
-    <div id="toastNotification" class="toast hidden"></div>
+            } catch (error) {
+                showToastNotification(error.message, "error");
+                btnLoginSubmit.disabled = false;
+                btnLoginSubmit.innerHTML = "🔓 Authenticate & Open Session";
+            }
+        });
+    }
+});
 
-    <script src="js/login.js"></script>
-</body>
-</html>
+function showToastNotification(message, type = "success") {
+    const toast = document.getElementById("toastNotification");
+    if (!toast) return;
+    toast.innerText = message;
+    toast.className = `toast ${type}`;
+    toast.classList.remove("hidden");
+    setTimeout(() => { toast.classList.add("hidden"); }, 5000);
+}

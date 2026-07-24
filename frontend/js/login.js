@@ -1,9 +1,10 @@
 /**
  * viewsincrease.com - High-Security Login Controller Interface.
- * Handles primary ingestion authentication using secure JSON payloads.
+ * Handles primary ingestion authentication using secure JSON payloads directly to Render Backend.
  */
 
-const API_BASE_URL = "https://tzviewers.onrender.com/api"; // GOOD! Hii inaenda Render Backend!
+// 🎯 HII NDIO URL SAHIHI INAYOENDA RENDER (SIYO NETLIFY)
+const API_BASE_URL = "https://tzviewers.onrender.com/api";
 
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("loginForm");
@@ -19,11 +20,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (loginForm) {
         loginForm.addEventListener("submit", async (event) => {
-            event.preventDefault(); // Defensively block default form postback loops
+            // 🛑 LALIZIMA FORM ISIFANYE GET SUBMIT AMA REFRESH PAGE
+            event.preventDefault();
 
             const usernameInput = userField.value.trim();
-            // ⚠️ DO NOT USE .trim() ON PASSWORDS - Preserves raw entropy & spaces
-            const passwordInput = passField.value; 
+            // ⚠️ Password haiwekewi .trim() ili kuhifadhi raw entropy
+            const passwordInput = passField.value;
 
             // Firewall A: Empty parameters verification block
             if (!usernameInput || !passwordInput) {
@@ -36,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btnLoginSubmit.innerHTML = "Verifying Credentials Matrix...";
 
             try {
-                // Forward secure JSON payload down the unified backend endpoint
+                // Forward secure JSON payload down the unified Render backend endpoint
                 const response = await fetch(`${API_BASE_URL}/auth/login`, {
                     method: "POST",
                     headers: { 
@@ -54,6 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!response.ok) {
                     userField.value = "";
                     passField.value = "";
+                    
                     // Support Pydantic validation array error messages if available
                     const errDetail = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || data.message);
                     throw new Error(errDetail || "Credential verification failed. Access denied by authentication shield.");
