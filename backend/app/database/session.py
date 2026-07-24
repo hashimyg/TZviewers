@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from dotenv import load_dotenv
 
-# Bootstrapping local mazingira
+# Bootstrapping local workspace profiles
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
@@ -34,3 +35,7 @@ async_session_factory = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+# 🎯 THE MISSING LINK FIXED: Hapa sasa tunatengeneza 'Base' class inayotafutwa na ma-models yako yote!
+class Base(DeclarativeBase):
+    pass
