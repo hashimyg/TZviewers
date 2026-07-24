@@ -12,8 +12,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 from app.core.config import settings
 from app.utils.hashing import PasswordManager
 from app.database.models.admin import Admin
-# Ongeza import ya Base ili tuweze kutengeneza tables
-from app.database.session import Base  # Hakikisha hii path ya Base ni sahihi kulingana na project yako
+from app.database.session import Base
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("app.seed_admin")
@@ -22,6 +21,7 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
     """
     Executes a hardened administrative database seeding operation.
     Safe for both standalone CLI invocation and server runtime cycles.
+    Dynamically synchronizes password updates for existing administrative profiles.
     """
     target_username = os.getenv("ADMIN_SEED_USERNAME")
     target_email = os.getenv("ADMIN_SEED_EMAIL", "hashimyg583@gmail.com")
@@ -45,19 +45,30 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
         session = db_session
 
     try:
-        query = select(Admin).where(Admin.username == target_username.lower().strip())
+        normalized_username = target_username.lower().strip()
+        normalized_email = target_email.lower().strip()
+
+        query = select(Admin).where(Admin.username == normalized_username)
         result = await session.execute(query)
         existing_admin = result.scalars().first()
 
-        if existing_admin:
-            logger.info(f"Administrative account for user '{target_username.lower()}' already exists. Skipping.")
-            return
-
+        # Hash credentials using raw Bcrypt
         hashed_password = PasswordManager.hash_password(raw_secure_password)
 
+        if existing_admin:
+            # UPDATE EXISTING PROFILE WITH NEW PASSWORD FROM ENV
+            existing_admin.hashed_password = hashed_password
+            existing_admin.email = normalized_email
+            existing_admin.is_active = True
+            
+            await session.commit()
+            logger.info(f"SUCCESS: Administrative account '{normalized_username}' password & details updated cleanly.")
+            return
+
+        # CREATE NEW PROFILE IF USER DOES NOT EXIST
         root_admin = Admin(
-            username=target_username.lower().strip(),
-            email=target_email.lower().strip(),
+            username=normalized_username,
+            email=normalized_email,
             hashed_password=hashed_password,
             is_active=True
         )
@@ -65,7 +76,7 @@ async def execute_administrative_seeding(db_session: AsyncSession = None) -> Non
         session.add(root_admin)
         await session.commit()
         
-        logger.info(f"SUCCESS: Root administrative profile deployed into PostgreSQL engine cleanly. Username: '{target_username.lower().strip()}'")
+        logger.info(f"SUCCESS: Root administrative profile deployed into PostgreSQL engine cleanly. Username: '{normalized_username}'")
 
     except Exception as e:
         await session.rollback()
