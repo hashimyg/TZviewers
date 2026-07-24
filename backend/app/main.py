@@ -28,7 +28,6 @@ async def application_infrastructure_lifespan(app_instance: FastAPI):
     Ensures safe, atomic socket initialization and cleanup across database layers.
     """
     logger.info("Initializing infrastructure connection matrix checks via system lifespan hooks.")
-    # Here, our dependencies and health routers handle early probe mappings natively.
     yield
     logger.info("Deactivating production backend containers. Closing active thread resources safely.")
 
@@ -50,12 +49,19 @@ def create_application_runtime() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENVIRONMENT != "production" else None,
     )
 
-    # 3. MOUNT TRUSTED HOST MIDDLEWARE (Prevents Host-Header Injection Attacks)
+    # 3. MOUNT TRUSTED HOST MIDDLEWARE (FIXED: Allowed Render & Netlify Domains)
     if settings.ENVIRONMENT == "production":
-        # In production, this explicitly restricts valid incoming host bindings
+        allowed_hosts_list = [
+            "localhost",
+            "127.0.0.1",
+            "tzviewers.onrender.com",
+            "*.onrender.com",
+            "tzviewers.netlify.app",
+            "*.netlify.app"
+        ]
         app.add_middleware(
             TrustedHostMiddleware, 
-            allowed_hosts=["localhost", "127.0.0.1"]  # Mbeleni tutaweka domain yetu salama kama ya vcf.co.tz
+            allowed_hosts=allowed_hosts_list
         )
 
     # 4. MOUNT SECURE REQUEST THROTTLING MIDDLEWARE (Layer 6 Anti-Abuse)
@@ -74,16 +80,25 @@ def create_application_runtime() -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none';"
         return response
 
-    # 6. MOUNT CROSS-ORIGIN RESOURCE SHARING FIREWALL
-    # Dynamically toggles credential validation constraints to block browser collision failures
+    # 6. MOUNT CROSS-ORIGIN RESOURCE SHARING FIREWALL (FIXED: Auto-fallback for Production)
     origins_list = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    allow_credentials_gate = True
     
+    # Ensure production domains are explicitly permitted even if missing in .env
+    production_origins = [
+        "https://tzviewers.netlify.app",
+        "https://tzviewers.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:8000"
+    ]
+    for p_origin in production_origins:
+        if p_origin not in origins_list and "*" not in origins_list:
+            origins_list.append(p_origin)
+
+    allow_credentials_gate = True
     if "*" in origins_list:
-        allow_credentials_gate = False  # Enforce strict standard constraints when wildcard operators are present
+        allow_credentials_gate = False
 
     app.add_middleware(
         CORSMiddleware,
@@ -99,11 +114,10 @@ def create_application_runtime() -> FastAPI:
     # =====================================================================
     # 8. REGISTER CORE ROUTING ARCHITECTURE MODULES WITH UNIFIED PREFIXES
     # =====================================================================
-    # FIXED: Tunatumia settings.API_V1_STR au prefix safi ya "/api" bila kurudia ma-folder ya ndani ya routers
     app.include_router(health_router, prefix="/api")
-    app.include_router(auth_router, prefix="/api")      # /api + /auth/login = /api/auth/login cleanly
-    app.include_router(contacts_router, prefix="/api")  # /api + /contacts/... = /api/contacts/...
-    app.include_router(upload_router, prefix="/api")    # /api + /upload/... = /api/upload/...
+    app.include_router(auth_router, prefix="/api")      
+    app.include_router(contacts_router, prefix="/api")  
+    app.include_router(upload_router, prefix="/api")    
 
     logger.info(f"System initialization phase finalized under unified '{settings.ENVIRONMENT.upper()}' contexts.")
     return app

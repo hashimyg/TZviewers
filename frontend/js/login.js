@@ -3,7 +3,7 @@
  * Handles primary ingestion authentication using secure JSON payloads.
  */
 
-const API_BASE_URL = window.location.origin + "/api";
+const API_BASE_URL = "https://tzviewers.onrender.com/api";
 
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("loginForm");
