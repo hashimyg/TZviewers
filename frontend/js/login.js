@@ -1,9 +1,4 @@
-/**
- * viewsincrease.com - High-Security Login Controller Interface.
- * Handles primary ingestion authentication using secure JSON payloads directly to Render Backend.
- */
-
-// 🎯 Hardcoded Absolute URL for Render Backend to prevent Netlify relative route hijacking
+// 🎯 Hardcoded Render Endpoint
 const RENDER_AUTH_ENDPOINT = "https://tzviewers.onrender.com/api/auth/login";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -12,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const userField = document.getElementById("adminUsername");
     const passField = document.getElementById("adminPassword");
 
-    // 🛡️ HARDENED PRIVACY SECURITY PURGE: Wipes browser autofill cache instantly on load
     if (userField && passField) {
         userField.value = "";
         passField.value = "";
@@ -20,31 +14,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (loginForm) {
         loginForm.addEventListener("submit", async (event) => {
-            // 🛑 Defensively block default form postback loops
             event.preventDefault();
 
             const usernameInput = userField.value.trim();
             const passwordInput = passField.value;
 
-            // Firewall A: Empty parameters verification block
             if (!usernameInput || !passwordInput) {
                 showToastNotification("Authentication Failure: Username or Password fields cannot be left blank.", "error");
                 return;
             }
 
-            // Freeze UI controls to prevent double-click performance spikes
             btnLoginSubmit.disabled = true;
             btnLoginSubmit.innerHTML = "Verifying Credentials Matrix...";
 
             try {
-                // Controller to handle request timeout if server is cold-starting
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 sec timeout for Render free tier spin-up
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-                // Forward secure JSON payload directly to the explicit Render backend endpoint
                 const response = await fetch(RENDER_AUTH_ENDPOINT, {
                     method: "POST",
-                    mode: "cors", // Explicitly enforce cross-domain request
                     headers: { 
                         "Content-Type": "application/json",
                         "Accept": "application/json"
@@ -63,25 +51,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!response.ok) {
                     userField.value = "";
                     passField.value = "";
-                    
                     const errDetail = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || data.message);
-                    throw new Error(errDetail || "Credential verification failed. Access denied by authentication shield.");
+                    throw new Error(errDetail || "Credential verification failed.");
                 }
 
-                // Capture access_token key returned natively by Token schema
                 const finalToken = data.access_token;
-                
                 if (!finalToken) {
-                    throw new Error("Security Error: Cryptographic access token missing in server response payload.");
+                    throw new Error("Security Error: Access token missing.");
                 }
 
                 showToastNotification("Access Granted! Opening secure session...", "success");
-                
-                // Store verified token string securely inside short-lived session context memory
                 sessionStorage.setItem("admin_token", finalToken);
                 sessionStorage.setItem("admin_username", usernameInput.toLowerCase());
 
-                // Zero out sensitive data fields from browser memory before redirection sequence
                 userField.value = "";
                 passField.value = "";
 
@@ -92,9 +74,9 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (error) {
                 let errorMessage = error.message;
                 if (error.name === "AbortError") {
-                    errorMessage = "Server response timed out. Render backend might be waking up (Cold Start). Please try clicking again in 5 seconds.";
+                    errorMessage = "Server response timed out (Cold Start). Try again in 5 seconds.";
                 } else if (error.message.includes("Failed to fetch")) {
-                    errorMessage = "Network Error / CORS Blocked. Unable to establish connection to Render backend.";
+                    errorMessage = "Network Error / CORS Blocked. Unable to connect to Render.";
                 }
 
                 showToastNotification(errorMessage, "error");
