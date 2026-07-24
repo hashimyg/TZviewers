@@ -3,7 +3,8 @@
  * Handles metrics rendering, bulk VCF uploads, verification workflows, and master vCard aggregation.
  */
 
-const API_BASE_URL = window.location.origin + "/api";
+const API_BASE_URL = "https://tzviewers.onrender.com/api";
+
 
 document.addEventListener("DOMContentLoaded", () => {
     // 🛡️ SECURITY GUARD: Intercept session memory instantly to protect UI bounds

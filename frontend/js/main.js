@@ -3,7 +3,8 @@
  * Formats data, fetches live metrics, and manages viral sharing features safely on localhost.
  */
 
-const API_BASE_URL = window.location.origin + "/api";
+const API_BASE_URL = "https://tzviewers.onrender.com/api";
+
 
 document.addEventListener("DOMContentLoaded", () => {
     const contactForm = document.getElementById("contactForm");
