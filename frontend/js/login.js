@@ -3,8 +3,8 @@
  * Handles primary ingestion authentication using secure JSON payloads directly to Render Backend.
  */
 
-// 🎯 HII NDIO URL SAHIHI INAYOENDA RENDER (SIYO NETLIFY)
-const API_BASE_URL = "https://tzviewers.onrender.com/api";
+// 🎯 Hardcoded Absolute URL for Render Backend to prevent Netlify relative route hijacking
+const RENDER_AUTH_ENDPOINT = "https://tzviewers.onrender.com/api/auth/login";
 
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("loginForm");
@@ -20,11 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (loginForm) {
         loginForm.addEventListener("submit", async (event) => {
-            // 🛑 LALIZIMA FORM ISIFANYE GET SUBMIT AMA REFRESH PAGE
+            // 🛑 Defensively block default form postback loops
             event.preventDefault();
 
             const usernameInput = userField.value.trim();
-            // ⚠️ Password haiwekewi .trim() ili kuhifadhi raw entropy
             const passwordInput = passField.value;
 
             // Firewall A: Empty parameters verification block
@@ -38,9 +37,14 @@ document.addEventListener("DOMContentLoaded", () => {
             btnLoginSubmit.innerHTML = "Verifying Credentials Matrix...";
 
             try {
-                // Forward secure JSON payload down the unified Render backend endpoint
-                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                // Controller to handle request timeout if server is cold-starting
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 sec timeout for Render free tier spin-up
+
+                // Forward secure JSON payload directly to the explicit Render backend endpoint
+                const response = await fetch(RENDER_AUTH_ENDPOINT, {
                     method: "POST",
+                    mode: "cors", // Explicitly enforce cross-domain request
                     headers: { 
                         "Content-Type": "application/json",
                         "Accept": "application/json"
@@ -48,8 +52,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify({ 
                         username: usernameInput.toLowerCase(), 
                         password: passwordInput 
-                    })
+                    }),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
 
                 const data = await response.json();
 
@@ -57,7 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     userField.value = "";
                     passField.value = "";
                     
-                    // Support Pydantic validation array error messages if available
                     const errDetail = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || data.message);
                     throw new Error(errDetail || "Credential verification failed. Access denied by authentication shield.");
                 }
@@ -84,7 +90,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 }, 1000);
 
             } catch (error) {
-                showToastNotification(error.message, "error");
+                let errorMessage = error.message;
+                if (error.name === "AbortError") {
+                    errorMessage = "Server response timed out. Render backend might be waking up (Cold Start). Please try clicking again in 5 seconds.";
+                } else if (error.message.includes("Failed to fetch")) {
+                    errorMessage = "Network Error / CORS Blocked. Unable to establish connection to Render backend.";
+                }
+
+                showToastNotification(errorMessage, "error");
                 btnLoginSubmit.disabled = false;
                 btnLoginSubmit.innerHTML = "🔓 Authenticate & Open Session";
             }
