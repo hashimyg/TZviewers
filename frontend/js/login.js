@@ -22,7 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault(); // Defensively block default form postback loops
 
             const usernameInput = userField.value.trim();
-            const passwordInput = passField.value.trim();
+            // ⚠️ DO NOT USE .trim() ON PASSWORDS - Preserves raw entropy & spaces
+            const passwordInput = passField.value; 
 
             // Firewall A: Empty parameters verification block
             if (!usernameInput || !passwordInput) {
@@ -53,7 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!response.ok) {
                     userField.value = "";
                     passField.value = "";
-                    throw new Error(data.message || "Credential verification failed. Access denied by authentication shield.");
+                    // Support Pydantic validation array error messages if available
+                    const errDetail = Array.isArray(data.detail) ? data.detail[0].msg : (data.detail || data.message);
+                    throw new Error(errDetail || "Credential verification failed. Access denied by authentication shield.");
                 }
 
                 // Capture access_token key returned natively by Token schema
