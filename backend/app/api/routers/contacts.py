@@ -1,4 +1,3 @@
-
 import os
 import uuid
 import logging
@@ -160,13 +159,11 @@ async def download_master_vcf_file(token: str = Query(...), db: AsyncSession = D
     except Exception:
          raise HTTPException(status_code=401, detail="Unauthorized access token sequence.")
          
-    # Compile VCF moja kwa moja kwenye EXACT path inayotumika na VcfEngineService
     try:
         await VcfEngineService.compile_master_vcf(db=db)
     except Exception as e:
         logger.error(f"Assembly failed during download request: {str(e)}")
 
-    # Angalia kama MASTER_VCF_PATH ipo
     if not MASTER_VCF_PATH.exists():
          raise HTTPException(status_code=404, detail="Assembled directory target log file is missing.")
          
@@ -202,3 +199,33 @@ async def restore_deleted_contact(
     contact.is_approved = False
     await db.commit()
     return {"success": True, "message": "Contact restored safely down into validation loops!"}
+
+# =====================================================================
+# PERMANENT PURGE (HARD DELETE) ENDPOINT
+# =====================================================================
+@router.delete("/admin/{contact_id}/purge", status_code=status.HTTP_200_OK, summary="Permanently deletes a contact from the database.")
+async def purge_contact_permanently(
+    contact_id: uuid.UUID,
+    current_admin: Admin = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Hard delete operation: Removes the target contact record permanently from PostgreSQL database.
+    """
+    query = select(Contact).where(Contact.id == contact_id)
+    res = await db.execute(query)
+    contact = res.scalars().first()
+
+    if not contact:
+        return {"success": False, "message": "Target contact record not found inside database registry."}
+
+    await db.delete(contact)
+    await db.commit()
+
+    logger.info(f"Contact ID {contact_id} permanently purged from database by Admin ID: {current_admin.id}")
+
+    return {
+        "success": True,
+        "message": "Contact record permanently purged from database.",
+        "purged_id": str(contact_id)
+    }

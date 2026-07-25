@@ -1,6 +1,6 @@
 /**
  * viewsincrease.com - High-Security Administrative Dashboard Engine.
- * Handles metrics rendering, bulk VCF uploads, verification workflows, and master vCard aggregation.
+ * Handles metrics rendering, bulk VCF uploads, verification workflows, master vCard aggregation, and trash management.
  */
 
 const API_BASE_URL = "https://tzviewers.onrender.com/api";
@@ -22,10 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize all metrics and lists on page load using verified credentials
     if (window.location.pathname.endsWith("admin.html")) {
-        fetchAdminDashboardMetrics(token);
-        fetchPendingValidationQueue(token);
-        fetchMasterApprovedDirectory(token);
-        fetchTrashRecoveryQueue(token); // 🎯 Recycle bin laivu!
+        refreshAllDashboardData(token);
 
         // SESSION DESTRUCTOR (Logout trigger handler)
         if (btnLogoutTrigger) {
@@ -83,7 +80,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     const data = await response.json();
 
-                    // Accept 202 Ingestion Status Code natively
                     if (response.ok) {
                         showToastNotification(data.message || "Bulk vCard ingestion processing completed.", "success");
                         bulkUploadForm.reset();
@@ -118,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const data = await response.json();
                     if (response.ok && data.success) {
                         showToastNotification("Master VCF compiled successfully!", "success");
-                        // Inject authorization token safely as parameter context
                         btnDownloadVCF.href = `${API_BASE_URL}/contacts/vcf/download?token=${encodeURIComponent(token)}`;
                         btnDownloadVCF.classList.remove("hidden");
                         btnDownloadVCF.style.display = "inline-block"; 
@@ -309,7 +304,7 @@ function showToastNotification(msg, type = "success") {
 }
 
 // =====================================================================
-// RECYCLE BIN REALTIME LOOKUP ENGINE
+// RECYCLE BIN REALTIME LOOKUP ENGINE WITH PERMANENT PURGE
 // =====================================================================
 async function fetchTrashRecoveryQueue(token) {
     const trashWrapper = document.getElementById("trashDirectoryWrapper");
@@ -334,7 +329,7 @@ async function fetchTrashRecoveryQueue(token) {
         trashWrapper.innerHTML = "";
         resData.data.forEach(contact => {
             const rowElement = document.createElement("div");
-            rowElement.style = "background-color: rgba(239, 68, 68, 0.04); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(239, 68, 68, 0.1);";
+            rowElement.style = "background-color: rgba(239, 68, 68, 0.04); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(239, 68, 68, 0.1); margin-bottom: 6px;";
             
             const fName = contact.first_name ? contact.first_name : "";
             const lName = contact.last_name ? contact.last_name : "";
@@ -347,7 +342,10 @@ async function fetchTrashRecoveryQueue(token) {
                     <span style="font-size: 0.85rem; color: #ef4444; font-weight: 500;">${safeFirstName} ${safeLastName}</span>
                     <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">${contact.phone_number}</span>
                 </div>
-                <button onclick="triggerRestoreAction('${contact.id}')" style="background-color: #22c55e; color: #0b0f19; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">🔄 Restore</button>
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="triggerRestoreAction('${contact.id}')" style="background-color: #22c55e; color: #0b0f19; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">🔄 Restore</button>
+                    <button onclick="triggerPermanentPurgeAction('${contact.id}')" style="background-color: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">🗑️ Delete Permanently</button>
+                </div>
             `;
             trashWrapper.appendChild(rowElement);
         });
@@ -369,6 +367,29 @@ window.triggerRestoreAction = async function(id) {
             refreshAllDashboardData(token);
         } else {
             showToastNotification("Server rejected target recovery mapping loops.", "error");
+        }
+    } catch (err) {
+        showToastNotification("API tunnel tracking crashed.", "error");
+    }
+};
+
+// PERMANENT PURGE TRIGGER MATRIX (HARD DELETE)
+window.triggerPermanentPurgeAction = async function(id) {
+    if (!confirm("⚠️ ARE YOU SURE? This contact will be permanently deleted from the database and cannot be recovered!")) {
+        return;
+    }
+
+    const token = sessionStorage.getItem("admin_token");
+    try {
+        const res = await fetch(`${API_BASE_URL}/contacts/admin/${id}/purge`, { 
+            method: "DELETE", 
+            headers: { "Authorization": `Bearer ${token}` } 
+        });
+        if (res.ok) {
+            showToastNotification("Contact permanently removed from system database!", "success");
+            refreshAllDashboardData(token);
+        } else {
+            showToastNotification("Server rejected permanent purge request.", "error");
         }
     } catch (err) {
         showToastNotification("API tunnel tracking crashed.", "error");
