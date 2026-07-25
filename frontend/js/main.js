@@ -1,22 +1,15 @@
 /**
  * viewsincrease.com - Public Client Core Ingestion Engine.
- * Formats data, fetches live metrics, and manages viral sharing features safely on localhost.
+ * Formats data, fetches live metrics, and manages viral sharing features safely.
  */
 
 const API_BASE_URL = "https://tzviewers.onrender.com/api";
 
-
 document.addEventListener("DOMContentLoaded", () => {
     const contactForm = document.getElementById("contactForm");
-    const totalMembersDisplay = document.getElementById("totalMembers");
-    const progressBar = document.getElementById("progressBar");
-    const btnSubmit = document.getElementById("btnSubmit");
-    const btnCopyNetworkLink = document.getElementById("btnCopyNetworkLink");
-    const btnShareWhatsApp = document.getElementById("btnShareWhatsApp");
-    const btnShareTelegram = document.getElementById("btnShareTelegram");
-
-    // Dynamic Bootstrap live stats update instantly on entry load
-    fetchLivePlatformMetrics(totalMembersDisplay, progressBar);
+    
+    // Anza ku-fetch live metrics kutoka backend mara tu ukurasa unapofunguka
+    fetchLivePlatformMetrics();
 
     if (contactForm) {
         contactForm.addEventListener("submit", async (event) => {
@@ -26,30 +19,29 @@ document.addEventListener("DOMContentLoaded", () => {
             const fullNameValue = document.getElementById("fullName").value.trim();
             const phoneNumberValue = document.getElementById("phoneNumber").value.trim();
             const consentGivenCheck = document.getElementById("consentGiven").checked;
+            const btnSubmit = document.getElementById("btnSubmit");
 
             if (!fullNameValue || !phoneNumberValue) {
-                showToastNotification("Please fill in your full name and mobile phone number completely.", "error");
+                showToastNotification("Tafadhali jaza jina lako na namba ya simu kikamilifu.", "error");
                 return;
             }
 
-            if (fullNameValue.length < 2 || fullNameValue.length > 10) {
-                showToastNotification("Invalid Name: Full name must be strictly between 2 and 10 characters long.", "error");
+            if (fullNameValue.length < 2 || fullNameValue.length > 50) {
+                showToastNotification("Jina halali lazima liwe na urefu kati ya herufi 2 na 50.", "error");
                 return;
             }
 
-            const integerRegex = /^\d+$/;
-            if (!integerRegex.test(phoneNumberValue)) {
-                showToastNotification("Invalid Number: Mobile sequences must contain numeric digits only.", "error");
-                return;
-            }
+            // 🎯 STRICT TANZANIAN PHONE REGEX: Lazima ianze na 06, 07, 2556, au 2557 pekee!
+            const tzPhoneRegex = /^(?:255|0)[67]\d{8}$/;
+            const sanitizedPhone = phoneNumberValue.replace(/[\s\-\(\)\+]/g, "");
 
-            if (phoneNumberValue.length < 9 || phoneNumberValue.length > 12) {
-                showToastNotification("Invalid Number: Mobile sequences must be between 9 and 12 digits long.", "error");
+            if (!tzPhoneRegex.test(sanitizedPhone)) {
+                showToastNotification("Namba sio halali! Tumia namba ya simu ya Tanzania inayoanza na 06 au 07 (mfano: 0712345678).", "error");
                 return;
             }
 
             if (!consentGivenCheck) {
-                showToastNotification("Authorization Denied: You must accept the privacy consent statement to proceed.", "error");
+                showToastNotification("Unapaswa kukubali masharti na vigezo ili kuendelea.", "error");
                 return;
             }
 
@@ -57,8 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
             btnSubmit.innerHTML = "Processing Secure Ingestion Data...";
 
             const nameParts = fullNameValue.split(/\s+/).filter(part => part.length > 0);
-            
-            // INGESTION INDEX SAFEGUARD: Chukua string safi ya jina la kwanza kutoka index 0 kuzuia kosa la 422 upande wa seva!
             const firstName = nameParts[0] || "Unknown";
             const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
@@ -79,9 +69,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify(payload)
                 });
 
-                //  SHIELD PROTOCOL: Intercept 502/404 HTML templates early before parsing JSON strings
                 if (!response.ok) {
-                    let errorMessage = "An ingestion tracking error dropped from server matrices.";
+                    let errorMessage = "Kuna tatizo limetokea wakati wa kuhifadhi namba yako.";
                     try {
                         const errorData = await response.json();
                         errorMessage = errorData.detail || errorData.message || errorMessage;
@@ -91,12 +80,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     throw new Error(errorMessage);
                 }
 
-                // If response is perfectly healthy, extract payload arrays cleanly
                 await response.json();
 
-                showToastNotification("Success! Your number has been received and will go live once verified by the administrator.", "success");
+                showToastNotification("Hongera! Namba yako imepokelewa kikamilifu na itakuwa live mara itakapothibitishwa.", "success");
                 contactForm.reset();
-                fetchLivePlatformMetrics(totalMembersDisplay, progressBar);
+                fetchLivePlatformMetrics();
                    
             } catch (error) {
                 showToastNotification(error.message, "error");
@@ -107,6 +95,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Button ya Copy Link
+    const btnCopyNetworkLink = document.getElementById("btnCopyNetworkLink");
     if (btnCopyNetworkLink) {
         btnCopyNetworkLink.addEventListener("click", () => {
             navigator.clipboard.writeText(window.location.origin)
@@ -116,46 +106,63 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =====================================================================
-    // VIRAL MARKETING SHARE GATEWAYS (FIXED WHATSAPP & TELEGRAM API INTENTS)
+    // VIRAL MARKETING SHARE GATEWAYS (FIXED WHATSAPP & TELEGRAM INTENTS)
     // =====================================================================
     const platformLink = window.location.origin; 
-    const shareMessage = `checki hii system Views Increase! Inakuunganisha na maelfu ya watu wa Tanzania waonee WhatsApp Status zako na kukuza biashara yako, Jisajili sasa hivi bure kabisa hapa na udownload VCF file lako kupitia group letu la whatApp: ${platformLink}`;
+    const shareMessage = `Checki hii system Views Increase! Inakuunganisha na maelfu ya watu wa Tanzania waone WhatsApp Status zako na kukuza biashara yako. Jisajili sasa hivi bure kabisa hapa: ${platformLink}`;
 
+    const btnShareWhatsApp = document.getElementById("btnShareWhatsApp");
     if (btnShareWhatsApp) {
         btnShareWhatsApp.addEventListener("click", () => {
-            // 🎉 FIXED SYNTAX: Alama ya $ imerejeshwa na njia safi ya api.whatsapp ya kiwanda imefungwa!
-            const whatsappUrl = `https://whatsapp.com{encodeURIComponent(shareMessage)}`;
+            const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`;
             window.open(whatsappUrl, "_blank");
         });
     }
 
+    const btnShareTelegram = document.getElementById("btnShareTelegram");
     if (btnShareTelegram) {
         btnShareTelegram.addEventListener("click", () => {
-            // 🎉 FIXED SYNTAX: Alama ya $ imerejeshwa na muundo thabiti wa share link wa t.me umenyooka!
-            const telegramUrl = `https://t.me{encodeURIComponent(platformLink)}&text=${encodeURIComponent(shareMessage)}`;
+            const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(platformLink)}&text=${encodeURIComponent(shareMessage)}`;
             window.open(telegramUrl, "_blank");
         });
     }
 });
 
-async function fetchLivePlatformMetrics(valueDisplay, barDisplay) {
-    if (!valueDisplay || !barDisplay) return;
+/**
+ * Inavuta takwimu za live na kubadilisha element zote za counter kwenye HTML
+ */
+async function fetchLivePlatformMetrics() {
     try {
         const response = await fetch(`${API_BASE_URL}/health`);
         if (!response.ok) return;
         const healthData = await response.json();
         
-        // FIXED LIVE DATA INJECTION: Inalinda namba isisomeke kama object hata database ikiwa tupu!
         if (healthData && healthData.live_counter !== undefined) {
             const actualTotal = parseInt(healthData.live_counter) || 0;
-            valueDisplay.innerText = actualTotal; 
             
-            const percentage = Math.min(Math.round((actualTotal / 1000) * 100), 100);
-            barDisplay.style.width = `${percentage}%`;
-            const barText = document.getElementById("progressBarText");
-            if (barText) barText.innerText = `${percentage}% Completed`;
+            // Rejesha live total kwenye element zote zinazoweza kuwepo kwenye index.html
+            const totalDisplays = [
+                document.getElementById("totalMembers"),
+                document.getElementById("totalContacts"),
+                document.querySelector(".total-contacts-count")
+            ];
+
+            totalDisplays.forEach(el => {
+                if (el) el.innerText = actualTotal;
+            });
+            
+            // Badilisha Progress Bar kulingana na idadi halisi
+            const progressBar = document.getElementById("progressBar");
+            if (progressBar) {
+                const percentage = Math.min(Math.round((actualTotal / 1000) * 100), 100);
+                progressBar.style.width = `${percentage}%`;
+                const barText = document.getElementById("progressBarText");
+                if (barText) barText.innerText = `${percentage}% Completed`;
+            }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Metrics fetch error:", e);
+    }
 }
 
 function showToastNotification(message, type = "success") {
