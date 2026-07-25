@@ -11,9 +11,11 @@ from app.core.config import settings
 from app.database.models.contact import Contact
 
 logger = logging.getLogger("app.api.health")
-router = APIRouter(prefix="/health", tags=["System Monitoring"])
 
-@router.get("", status_code=status.HTTP_200_OK)
+# FIXED: Ondoa prefix="/health" hapa kuzuia kosa la double-prefix (/api/health/health)
+router = APIRouter(tags=["System Monitoring"])
+
+@router.get("/health", status_code=status.HTTP_200_OK)
 async def check_system_infrastructure_health(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     start_time = time.time()
     postgres_healthy, redis_healthy = False, False
@@ -27,10 +29,8 @@ async def check_system_infrastructure_health(db: AsyncSession = Depends(get_db))
         postgres_latency = (time.time() - pg_start) * 1000
         postgres_healthy = True
 
-        # LIVE ENGINE COUNT: Inasoma namba halisi ya approved contacts sekunde hii
-        count_stmt = select(func.count(Contact.id)).where(
-            and_(Contact.is_approved == True, Contact.deleted_at == None)
-        )
+        # LIVE ENGINE COUNT: Inasoma namba halisi ya contacts ambazo hazijafutwa
+        count_stmt = select(func.count(Contact.id)).where(Contact.deleted_at == None)
         count_res = await db.execute(count_stmt)
         live_approved_count = count_res.scalar() or 0
     except Exception as pg_err:
@@ -52,18 +52,19 @@ async def check_system_infrastructure_health(db: AsyncSession = Depends(get_db))
     total_execution_runtime_ms = (time.time() - start_time) * 1000
 
     health_metrics = {
-        "status": "UP" if (postgres_healthy and redis_healthy) else "DOWN",
+        "status": "UP" if postgres_healthy else "DEGRADED",
         "environment": settings.ENVIRONMENT,
         "timestamp_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
         "total_check_latency_ms": round(total_execution_runtime_ms, 2),
-        "live_counter": live_approved_count, # 🎯 INJECTED: Thamani halisi ya namba za database
+        "live_counter": live_approved_count, # 🎯 INJECTED: Live counter inayobadilisha 289
         "services": {
             "postgres": {"status": "HEALTHY" if postgres_healthy else "UNHEALTHY", "latency_ms": round(postgres_latency, 2)},
             "redis": {"status": "HEALTHY" if redis_healthy else "UNHEALTHY", "latency_ms": round(redis_latency, 2)}
         }
     }
 
-    if not postgres_healthy or not redis_healthy:
+    # Iwapo PostgreSQL ipo sawa, rudisha metrics badala ya kurusha Exception ikiwa Redis tu ndio ipo chini
+    if not postgres_healthy:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=health_metrics)
 
     return health_metrics
