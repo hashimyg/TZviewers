@@ -22,12 +22,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const btnSubmit = document.getElementById("btnSubmit");
 
             if (!fullNameValue || !phoneNumberValue) {
-                showToastNotification("Tafadhali jaza jina lako na namba ya simu kikamilifu.", "error");
+                showToastNotification("Enter your name and phone number.", "error");
                 return;
             }
 
             if (fullNameValue.length < 2 || fullNameValue.length > 50) {
-                showToastNotification("Jina halali lazima liwe na urefu kati ya herufi 2 na 50.", "error");
+                showToastNotification("Name must contain atleast 2 characters.", "error");
                 return;
             }
 
@@ -36,12 +36,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const sanitizedPhone = phoneNumberValue.replace(/[\s\-\(\)\+]/g, "");
 
             if (!tzPhoneRegex.test(sanitizedPhone)) {
-                showToastNotification("Namba sio halali! Tumia namba ya simu ya Tanzania inayoanza na 06 au 07 (mfano: 0712345678).", "error");
+                showToastNotification("syntax Error.", "error");
                 return;
             }
 
             if (!consentGivenCheck) {
-                showToastNotification("Unapaswa kukubali masharti na vigezo ili kuendelea.", "error");
+                showToastNotification("you must agree with the terms and policy of this platform.", "error");
                 return;
             }
 
@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
 
                 if (!response.ok) {
-                    let errorMessage = "Kuna tatizo limetokea wakati wa kuhifadhi namba yako.";
+                    let errorMessage = "There is a problem on uploading your contact.";
                     try {
                         const errorData = await response.json();
                         errorMessage = errorData.detail || errorData.message || errorMessage;
@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 await response.json();
 
-                showToastNotification("Hongera! Namba yako imepokelewa kikamilifu na itakuwa live mara itakapothibitishwa.", "success");
+                showToastNotification("congratulations your number was verified stay tune for vcf .", "success");
                 contactForm.reset();
                 fetchLivePlatformMetrics();
                    
