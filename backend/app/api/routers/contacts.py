@@ -1,3 +1,4 @@
+
 import os
 import uuid
 import logging
@@ -8,7 +9,6 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 
-# FIXED DECOUPLING IMPORT: Points strictly to the verified dependencies module
 from app.dependencies.database import get_db
 from app.database.models.admin import Admin
 from app.database.models.contact import Contact
@@ -43,7 +43,6 @@ async def submit_public_contact(
             detail="This phone number is already registered inside our platform. Duplicate submissions are blocked."
         )
 
-    # FIXED DATA INTEGRITY FALLBACK: Satisfies nullable=False constraints on single names gracefully
     resolved_last_name = payload.last_name.strip() if payload.last_name else payload.first_name.strip()
 
     new_contact = Contact(
@@ -148,32 +147,34 @@ async def trigger_vcf_generation(
         await VcfEngineService.compile_master_vcf(db=db)
         return {"success": True, "message": "Master vCard directory file assembled completely."}
     except Exception as e:
+        logger.error(f"VCF Generation error: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Compilation collapsed: {str(e)}"}
 
 @router.get("/vcf/download")
 async def download_master_vcf_file(token: str = Query(...), db: AsyncSession = Depends(get_db)):
     from fastapi.responses import FileResponse
-    from app.services.vcf_engine import VcfEngineService
+    from app.services.vcf_engine import VcfEngineService, MASTER_VCF_PATH
     
     try:
         admin = await get_current_admin(token=token, db=db)
     except Exception:
          raise HTTPException(status_code=401, detail="Unauthorized access token sequence.")
          
-    file_location = "/app/storage/vcf/master_directory.vcf"
-    
-    # 💡 AUTO-GENERATE FALLBACK: Kama faili halipo kwenye storage, compile hapo hapo!
-    if not os.path.exists(file_location):
-        try:
-            logger.info("VCF file missing from storage. Triggering auto-assembly on the fly...")
-            await VcfEngineService.compile_master_vcf(db=db)
-        except Exception as e:
-            logger.error(f"Auto-assembly failed during download request: {str(e)}")
+    # Compile VCF moja kwa moja kwenye EXACT path inayotumika na VcfEngineService
+    try:
+        await VcfEngineService.compile_master_vcf(db=db)
+    except Exception as e:
+        logger.error(f"Assembly failed during download request: {str(e)}")
 
-    if not os.path.exists(file_location):
+    # Angalia kama MASTER_VCF_PATH ipo
+    if not MASTER_VCF_PATH.exists():
          raise HTTPException(status_code=404, detail="Assembled directory target log file is missing.")
          
-    return FileResponse(path=file_location, filename="Master_Contacts_Verified.vcf", media_type="text/vcard")
+    return FileResponse(
+        path=str(MASTER_VCF_PATH), 
+        filename="Master_Contacts_Verified.vcf", 
+        media_type="text/vcard"
+    )
 
 @router.get("/admin/trash", summary="Lists all soft-deleted records for recovery.")
 async def list_deleted_contacts(
