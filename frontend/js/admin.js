@@ -5,7 +5,6 @@
 
 const API_BASE_URL = "https://tzviewers.onrender.com/api";
 
-
 document.addEventListener("DOMContentLoaded", () => {
     // 🛡️ SECURITY GUARD: Intercept session memory instantly to protect UI bounds
     const token = sessionStorage.getItem("admin_token");
@@ -26,11 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchAdminDashboardMetrics(token);
         fetchPendingValidationQueue(token);
         fetchMasterApprovedDirectory(token);
-        fetchAdminDashboardMetrics(token);
-        fetchPendingValidationQueue(token);
-        fetchMasterApprovedDirectory(token);
-        fetchTrashRecoveryQueue(token); // 🎯 INJECTED: Inaita Recycle bin laivu!
-
+        fetchTrashRecoveryQueue(token); // 🎯 Recycle bin laivu!
 
         // SESSION DESTRUCTOR (Logout trigger handler)
         if (btnLogoutTrigger) {
@@ -54,9 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         showToastNotification("Database clean! Duplicate records successfully parsed.", "success");
                         btnTriggerSystemOptimize.disabled = false;
                         btnTriggerSystemOptimize.innerText = "✨ Run System Scan";
-                        fetchAdminDashboardMetrics(token);
-                        fetchPendingValidationQueue(token);
-                        fetchMasterApprovedDirectory(token);
+                        refreshAllDashboardData(token);
                     }, 2000);
                 } catch (e) {
                     btnTriggerSystemOptimize.disabled = false;
@@ -103,9 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     btnBulkUploadSubmit.disabled = false;
                     btnBulkUploadSubmit.innerText = "⚡ Start Non-Blocking Ingestion";
                     setTimeout(() => { 
-                        fetchAdminDashboardMetrics(token); 
-                        fetchPendingValidationQueue(token); 
-                        fetchMasterApprovedDirectory(token); 
+                        refreshAllDashboardData(token);
                     }, 2000);
                 }
             });
@@ -144,6 +135,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 });
+
+// Helper function to refresh all live dashboard partitions simultaneously
+function refreshAllDashboardData(token) {
+    fetchAdminDashboardMetrics(token);
+    fetchPendingValidationQueue(token);
+    fetchMasterApprovedDirectory(token);
+    fetchTrashRecoveryQueue(token);
+}
 
 // =====================================================================
 // LIVE METRICS AGGREGATION HANDSHAKE
@@ -291,9 +290,7 @@ window.executeAdminRowAction = async function(id, type) {
         });
         if (res.ok) {
             showToastNotification(type === "approve" ? "Authorized successfully!" : "Record dropped.", "success");
-            fetchAdminDashboardMetrics(token);
-            fetchPendingValidationQueue(token);
-            fetchMasterApprovedDirectory(token);
+            refreshAllDashboardData(token);
         } else {
             showToastNotification("Server rejected request updates.", "error");
         }
@@ -369,10 +366,7 @@ window.triggerRestoreAction = async function(id) {
         });
         if (res.ok) {
             showToastNotification("Contact successfully recovered from trash folder!", "success");
-            fetchAdminDashboardMetrics(token);
-            fetchPendingValidationQueue(token);
-            fetchMasterApprovedDirectory(token);
-            fetchTrashRecoveryQueue(token); // Refresh Recycle Bin laivu!
+            refreshAllDashboardData(token);
         } else {
             showToastNotification("Server rejected target recovery mapping loops.", "error");
         }
